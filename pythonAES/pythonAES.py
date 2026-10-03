@@ -45,3 +45,12 @@ if __name__ == "__main__":
     main(sys.argv[2])
 
 """""
+
+y=[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16]]
+
+
+for i in range(16):
+    row = i % 4
+    col = i // 4
+    print(i, row, col)
+    
