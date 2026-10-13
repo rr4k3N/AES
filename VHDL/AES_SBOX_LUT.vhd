@@ -6,15 +6,15 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity aes_sbox is
+entity aes_sbox_lut is
     port (
         addr : in  std_logic_vector(7 downto 0);
         dout : out std_logic_vector(7 downto 0)
     );
-end entity aes_sbox;
+end entity aes_sbox_lut;
 
 
-architecture rtl of aes_sbox is
+architecture rtl of aes_sbox_lut is
 
     --------------------------------------------------------------------
     -- AES S-box

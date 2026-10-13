@@ -8,6 +8,10 @@ package AESpkg is
     
     type word_array is array (0 to 59) of std_logic_vector(31 downto 0);   -- header
 
+    type byte_array is array (0 to 255) of std_logic_vector(7 downto 0);
+
+    type rcon_array is array (1 to 7) of std_logic_vector(7 downto 0);
+
 
     pure function vector_to_state (
         x : std_logic_vector( 127 downto 0)
@@ -18,12 +22,37 @@ package AESpkg is
         x : std_logic_vector(7 downto 0)
     ) return std_logic_vector;
 
-    pure function gf_mult_by3 (
-        x : std_logic_vector(7 downto 0)
-    ) return std_logic_vector;
 
     -- AES MixColumns for one 32-bit column
     pure function mix_column(
+        x : std_logic_vector(31 downto 0)
+    ) return std_logic_vector;
+
+
+    pure function round_exp(
+        closeKeyW   : std_logic_vector(31 downto 0);   -- w[i-1]
+        farKeyW     : std_logic_vector(31 downto 0);   -- w[i-8]
+        newKeyIndex : integer                          -- i
+    ) return std_logic_vector;
+
+        pure function rot_word(
+        x : std_logic_vector (31 downto 0)
+    ) return std_logic_vector;
+
+    pure function add_round_key(
+        x: state_type;
+        y: std_logic_vector (127 downto 0)
+    )   return state_type;
+
+    pure function state_to_vector(
+        x : state_type
+    ) return std_logic_vector;
+
+    pure function shift_rows(
+        x : state_type
+    ) return state_type;
+
+    pure function sub_word(
         x : std_logic_vector(31 downto 0)
     ) return std_logic_vector;
 
@@ -204,16 +233,6 @@ package body AESpkg is
 
     end function gf_mult_by2;
 
-    pure function gf_mult_by3(
-        x : std_logic_vector(7 downto 0)
-    ) return std_logic_vector is
-    begin
-
-        return gf_mult_by2(x) xor x;
-
-    end function gf_mult_by3;
-
-
     ----------------------------------------------------------------
     -- AES MixColumns
     --
@@ -305,13 +324,11 @@ package body AESpkg is
 
 
     pure function add_round_key(
-        x: state_type
+        x: state_type;
         y: std_logic_vector (127 downto 0)
-    ) return state_type is
-
+    )   return state_type is
     begin
-
-    return  vector_to_state(y xor state_to_vector(x));
+        return  vector_to_state(y xor state_to_vector(x));
     end function add_round_key;
 
 
@@ -321,66 +338,43 @@ package body AESpkg is
         newKeyIndex : integer                          -- i
     ) return std_logic_vector is
 
-        variable keyW_o : std_logic_vector(31 downto 0);
+        variable temp : std_logic_vector(31 downto 0);
 
     begin
+        temp := closeKeyW;
         if newKeyIndex mod 8 = 0 then
-            keyW_o := sub_word(rot_word(closeKeyW))
+            temp := sub_word(rot_word(closeKeyW))
                     xor (RCON(newKeyIndex/8) & x"000000");
         elsif newKeyIndex mod 8 = 4 then
-            keyW_o := sub_word(closeKeyW);
-        else
-            keyW_o := closeKeyW;
+            temp := sub_word(closeKeyW);
         end if;
 
-        return keyW_o xor farKeyW;
+        return temp xor farKeyW;
     end function round_exp;
 
+    pure function sub_word(
+        x : std_logic_vector(31 downto 0)
+    ) return std_logic_vector is
 
+        variable y : std_logic_vector(31 downto 0);
 
-        -- The LUT S-box: one byte in, one byte out
-    pure function sbox(x : std_logic_vector(7 downto 0))
-        return std_logic_vector is
     begin
-        return SBOX_TABLE(to_integer(unsigned(x)));
-    end function sbox;
+        y(31 downto 24) :=
+            SBOX_TABLE(to_integer(unsigned(x(31 downto 24))));
 
-    -- Key schedule: S-box on the 4 bytes of a word
-    pure function sub_word(x : std_logic_vector(31 downto 0))
-        return std_logic_vector is
-    begin
-        return sbox(x(31 downto 24)) &
-               sbox(x(23 downto 16)) &
-               sbox(x(15 downto 8))  &
-               sbox(x(7 downto 0));
+        y(23 downto 16) :=
+            SBOX_TABLE(to_integer(unsigned(x(23 downto 16))));
+
+        y(15 downto 8) :=
+            SBOX_TABLE(to_integer(unsigned(x(15 downto 8))));
+
+        y(7 downto 0) :=
+            SBOX_TABLE(to_integer(unsigned(x(7 downto 0))));
+
+        return y;
+
     end function sub_word;
 
-    -- Cipher: S-box on all 16 bytes of the state
-    pure function sub_bytes(s : state_type)
-        return state_type is
-        variable y : state_type;
-    begin
-        for r in 0 to 3 loop
-            for c in 0 to 3 loop
-                y(r, c) := sbox(s(r, c));
-            end loop;
-        end loop;
-        return y;
-    end function sub_bytes;
-
-
-    pure function key_expansion(key : std_logic_vector(255 downto 0))
-        return word_array is
-        variable w : word_array;
-    begin
-        for i in 0 to 7 loop
-            w(i) := key(255 - 32*i downto 224 - 32*i);
-        end loop;
-        for i in 8 to 59 loop
-            w(i) := round_exp(w(i-1), w(i-8), i);
-        end loop;
-        return w;
-    end function;
     
 
 end package body AESpkg;
