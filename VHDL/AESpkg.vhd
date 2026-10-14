@@ -56,12 +56,14 @@ package AESpkg is
         x : std_logic_vector(31 downto 0)
     ) return std_logic_vector;
 
+    pure function mix_columns (
+        x : state_type
+    ) return state_type;
 
+    pure function sub_bytes (
+        x : state_type
+    ) return state_type;
 
-end package AESpkg;
-
-
-package body AESpkg is
 
     constant RCON : rcon_array := (x"01", x"02", x"04", x"08", x"10", x"20", x"40");
 
@@ -162,6 +164,15 @@ package body AESpkg is
         248 => x"41",  249 => x"99",  250 => x"2D",  251 => x"0F",
         252 => x"B0",  253 => x"54",  254 => x"BB",  255 => x"16"
     );
+
+
+
+end package AESpkg;
+
+
+package body AESpkg is
+
+    
 
 
 
@@ -374,6 +385,36 @@ package body AESpkg is
         return y;
 
     end function sub_word;
+
+
+    pure function mix_columns (
+        x : state_type
+    ) return state_type is
+        variable y   : state_type;
+        variable col : std_logic_vector(31 downto 0);
+    begin
+        for c in 0 to 3 loop
+            col := mix_column(x(0, c) & x(1, c) & x(2, c) & x(3, c));
+            y(0, c) := col(31 downto 24);
+            y(1, c) := col(23 downto 16);
+            y(2, c) := col(15 downto 8);
+            y(3, c) := col(7 downto 0);
+        end loop;
+        return y;
+    end function mix_columns;
+
+    pure function sub_bytes (
+        x : state_type
+    ) return state_type is
+        variable y : state_type;
+    begin
+        for r in 0 to 3 loop
+            for c in 0 to 3 loop
+                y(r, c) := SBOX_TABLE(to_integer(unsigned(x(r, c))));
+            end loop;
+        end loop;
+        return y;
+    end function sub_bytes;
 
     
 
