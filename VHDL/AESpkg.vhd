@@ -12,6 +12,8 @@ package AESpkg is
 
     type rcon_array is array (1 to 7) of std_logic_vector(7 downto 0);
 
+    type byte_vec     is array (0 to 15) of std_logic_vector(7 downto 0);
+
 
     pure function vector_to_state (
         x : std_logic_vector( 127 downto 0)
@@ -61,6 +63,19 @@ package AESpkg is
     ) return state_type;
 
     pure function sub_bytes (
+        x : state_type
+    ) return state_type;
+
+    pure function rk (keys : std_logic_vector(1919 downto 0); r : integer)
+    return std_logic_vector;
+
+    pure function state_to_bytes (s : state_type) 
+    return byte_vec;
+
+    pure function bytes_to_state (b : byte_vec) 
+    return state_type;
+
+    pure function sub_state(
         x : state_type
     ) return state_type;
 
@@ -386,6 +401,23 @@ package body AESpkg is
 
     end function sub_word;
 
+    pure function sub_state(
+        x : state_type
+    ) return state_type is
+        variable y : state_type;
+        variable col : std_logic_vector(31 downto 0);
+    begin
+        for c in 0 to 3 loop
+            col := sub_word(x(0, c) & x(1, c) & x(2, c) & x(3, c));
+            y(0, c) := col(31 downto 24);
+            y(1, c) := col(23 downto 16);
+            y(2, c) := col(15 downto 8);
+            y(3, c) := col(7 downto 0);
+        end loop;
+        return y;
+    end function sub_state;
+
+
 
     pure function mix_columns (
         x : state_type
@@ -416,6 +448,32 @@ package body AESpkg is
         return y;
     end function sub_bytes;
 
+
+    pure function rk (keys : std_logic_vector(1919 downto 0); r : integer)
+        return std_logic_vector is
+    begin
+        return keys(1919 - 128*r downto 1792 - 128*r);
+    end function;
+
+    pure function state_to_bytes (s : state_type) 
+        return byte_vec is
+        variable b : byte_vec;
+    begin
+        for i in 0 to 15 loop
+        b(i) := s(i mod 4, i / 4);
+        end loop;
+        return b;
+    end function;
+
+    pure function bytes_to_state (b : byte_vec) 
+        return state_type is
+        variable s : state_type;
+    begin
+        for i in 0 to 15 loop
+        s(i mod 4, i / 4) := b(i);
+        end loop;
+        return s;
+    end function;
     
 
 end package body AESpkg;

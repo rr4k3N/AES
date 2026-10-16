@@ -19,7 +19,7 @@ end entity aes_256_cyph;
 
 architecture rtl of aes_256_cyph is
 
-  type byte_vec     is array (0 to 15) of std_logic_vector(7 downto 0);
+
   type byte_vec_arr is array (1 to 14) of byte_vec;
   type state_array  is array (0 to 14) of state_type;
 
@@ -31,31 +31,7 @@ architecture rtl of aes_256_cyph is
   signal sb_out : byte_vec_arr;      -- ROM outputs for round r (1 clock later)
   signal vld    : std_logic_vector(0 to 28) := (others => '0');
 
-  pure function rk (keys : std_logic_vector(1919 downto 0); r : integer)
-    return std_logic_vector is
-  begin
-    return keys(1919 - 128*r downto 1792 - 128*r);
-  end function;
 
-  pure function state_to_bytes (s : state_type) 
-    return byte_vec is
-    variable b : byte_vec;
-  begin
-    for i in 0 to 15 loop
-      b(i) := s(i mod 4, i / 4);
-    end loop;
-    return b;
-  end function;
-
-  pure function bytes_to_state (b : byte_vec) 
-    return state_type is
-    variable s : state_type;
-  begin
-    for i in 0 to 15 loop
-      s(i mod 4, i / 4) := b(i);
-    end loop;
-    return s;
-  end function;
 
 begin
 

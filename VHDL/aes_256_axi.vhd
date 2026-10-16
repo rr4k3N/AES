@@ -1,5 +1,5 @@
 -----------------------------------------------------------------------
--- aes256_axi : AXI wrapper around aes_256_cyph
+-- aes256_axi : AXI wrapper around aes_256_cyph_fast
 --
 --   S_AXI   : AXI4-Lite slave, control / key / status
 --   S_AXIS  : 128-bit plaintext  in  (from AXI DMA MM2S)
@@ -20,11 +20,13 @@
 -- The 128-bit stream word is byte-reversed in and out to guarantee that.
 --
 -- Flow control: the cipher pipeline cannot stall, so the wrapper only
--- accepts a block if there is guaranteed room for it in the output FIFO
--- (in_flight < FIFO_DEPTH).
+-- accepts a block if there is guaranteed room for it in the output FIFO.
+-- s_axis_tready is registered (timing) and uses a margin of 4:
+--   ready <= key_ready and (in_flight < FIFO_DEPTH - 4)
 --
--- Requires aes_256_cyph to have an extra output  key_ready_o  (= round_key_valid)
--- and PIPE_STAGES must equal the length of its vld shift register (29).
+-- Instantiates aes_256_cyph_fast (needs the key_ready_o output = round_key_valid).
+-- PIPE_STAGES must equal the length of its vld shift register (28 for the
+-- 2-stages-per-round version).
 -----------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
@@ -33,7 +35,7 @@ use ieee.numeric_std.all;
 entity aes256_axi is
   generic (
     FIFO_DEPTH  : integer := 64;   -- must be > PIPE_STAGES for full throughput
-    PIPE_STAGES : integer := 29
+    PIPE_STAGES : integer := 28
   );
   port (
     aclk    : in  std_logic;
@@ -122,6 +124,8 @@ architecture rtl of aes256_axi is
 
   -- stream / fifo
   signal s_tready_i   : std_logic;
+  signal s_tready_r   : std_logic := '0';   -- registered ready (timing)
+  signal key_ready_r  : std_logic := '0';
   signal m_tvalid_i   : std_logic;
   signal accept, pop  : std_logic;
   signal in_flight    : integer range 0 to FIFO_DEPTH := 0;
@@ -145,7 +149,7 @@ begin
   c_data_i <= bswap128(s_axis_tdata);
   c_valid_i <= accept;
 
-  u_aes : entity work.aes_256_cyph
+  u_aes : entity work.aes_256_cyph_fast
     port map (
       clk          => aclk,
       rst          => rst_c,
@@ -161,7 +165,7 @@ begin
   ----------------------------------------------------------------
   -- stream handshakes
   ----------------------------------------------------------------
-  s_tready_i    <= '1' when (c_key_ready = '1' and in_flight < FIFO_DEPTH) else '0';
+  s_tready_i    <= s_tready_r;
   s_axis_tready <= s_tready_i;
   accept        <= s_axis_tvalid and s_tready_i;
 
@@ -198,7 +202,17 @@ begin
         last_pipe    <= (others => '0');
         c_key_valid  <= '0';
         key_rejected <= '0';
+        s_tready_r   <= '0';
+        key_ready_r  <= '0';
       else
+        -- registered ready; margin of 4 covers the one-cycle-stale in_flight
+        key_ready_r <= c_key_ready;
+        if key_ready_r = '1' and in_flight < FIFO_DEPTH - 4 then
+          s_tready_r <= '1';
+        else
+          s_tready_r <= '0';
+        end if;
+
         -- tlast travels beside the data (same latency as the cipher's valid)
         last_pipe <= s_axis_tlast & last_pipe(0 to PIPE_STAGES - 2);
 
