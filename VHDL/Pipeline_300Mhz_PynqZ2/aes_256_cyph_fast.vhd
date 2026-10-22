@@ -29,7 +29,7 @@ signal st  : state_array;
 
 begin
 
-u_key_exp : entity work.key_expansion_timing
+u_key_exp : entity work.key_expansion_revb
 port map (
 clk             => clk,
 key             => key_i,

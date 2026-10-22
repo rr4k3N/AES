@@ -163,7 +163,7 @@ begin
   end process check;
 
   -- device under test
-  dut : entity work.aes_256_cyph_hp
+  dut : entity work.aes_256_cyph_fast
     port map (
       clk          => clk,
       rst          => rst,

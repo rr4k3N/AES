@@ -8,6 +8,8 @@ package AESpkg is
     
     type word_array is array (0 to 59) of std_logic_vector(31 downto 0);   -- header
 
+    type key_arrays is array (0 to 14) of std_logic_vector(127 downto 0);
+
     type byte_array is array (0 to 255) of std_logic_vector(7 downto 0);
 
     type rcon_array is array (1 to 7) of std_logic_vector(7 downto 0);
